@@ -1,10 +1,13 @@
 name: Build Android APK
 
-# This triggers the build on pushes to the main branch or manually
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
+# Fixes the Node 20 deprecation warning
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -17,7 +20,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
 
     - name: Install System Dependencies
       run: |
@@ -27,8 +30,8 @@ jobs:
     - name: Install Buildozer and Cython
       run: |
         pip install --upgrade pip
-        # Matching the specific Cython version required in your spec file
-        pip install Cython==0.29.33 
+        # Upgrade Cython to 3.0+ to ensure compatibility with modern Python
+        pip install "Cython>=3.0.0" 
         pip install buildozer
 
     - name: Accept Android SDK Licenses
@@ -36,7 +39,6 @@ jobs:
 
     - name: Build APK with Buildozer
       run: |
-        # This command reads your buildozer.spec and compiles the code
         buildozer android debug
 
     - name: Upload APK Artifact
