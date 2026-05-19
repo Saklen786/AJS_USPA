@@ -31,7 +31,7 @@ jobs:
       run: |
         pip install --upgrade pip
         # Upgrade Cython to 3.0+ to ensure compatibility with modern Python
-        pip install "Cython>=3.0.0" 
+        pip install "Cython>=0.29.33" 
         pip install buildozer
 
     - name: Accept Android SDK Licenses
