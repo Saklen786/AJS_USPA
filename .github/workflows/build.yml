@@ -2,47 +2,59 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
-
-# Fixes the Node 20 deprecation warning
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11.9'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Install System Dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install Buildozer and Cython
-      run: |
-        pip install --upgrade pip
-        # Upgrade Cython to 3.0+ to ensure compatibility with modern Python
-        pip install "Cython>=0.29.33" 
-        pip install buildozer
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev python3-pip python3-setuptools
 
-    - name: Accept Android SDK Licenses
-      run: yes | sdkmanager --licenses || true
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "cython<3.0.0" buildozer virtualenv
 
-    - name: Build APK with Buildozer
-      run: |
-        buildozer android debug
+      # ---> THE ULTIMATE FIX: RESOLVE 404 & VERSION MISMATCH <---
+      # Just in case you edit the buildozer.spec later and forget, this script
+      # acts as a final safety net to enforce the exact Python 3.11.9 versions.
+      - name: Auto-Patch Buildozer Spec
+        run: |
+          python3 -c "
+          import re
+          text = open('buildozer.spec').read()
+          text = text.replace('android.skip_update = True', 'android.skip_update = False')
+          text = re.sub(r'(?m)^p4a\.source_dir\s*=.*', '', text)
+          text = re.sub(r'(?m)^requirements\s*=.*', 'requirements = python3==3.11.9,hostpython3==3.11.9,kivy==2.3.0,pyjnius,android', text)
+          open('buildozer.spec', 'w').write(text)
+          "
 
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ultrasonic-demonstrator-apk
-        path: bin/*.apk
+      - name: Build APK
+        run: |
+          export ORG_GRADLE_PROJECT_jvmargs="-Xmx3072m -Dorg.gradle.daemon=false"
+          buildozer android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultrasonics-demo-apk
+          path: bin/*.apk
